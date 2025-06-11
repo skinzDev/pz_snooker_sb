@@ -136,7 +136,7 @@ public class DatabaseManager {
 
             System.out.println("DEBUG: Query executed successfully");
 
-            int rowCount = 0; // Initialize once outside the loop
+            int rowCount = 0;
             while (rs.next()) {
                 // Debug each field
                 int id = rs.getInt("id");
@@ -145,14 +145,21 @@ public class DatabaseManager {
                 String score = rs.getString("score");
                 int highestBreak = rs.getInt("highest_break");
                 Date sqlDate = rs.getDate("match_date");
-                LocalDate localDate = (sqlDate != null) ? sqlDate.toLocalDate() : null;
+
+                // FIXED: Handle null dates properly - use current date as fallback
+                LocalDate localDate = (sqlDate != null) ? sqlDate.toLocalDate() : LocalDate.now();
+
+                // FIXED: Handle null/empty strings
+                if (player1 == null) player1 = "N/A";
+                if (player2 == null) player2 = "N/A";
+                if (score == null) score = "0 : 0";
 
                 System.out.println("DEBUG: Row " + (rowCount + 1) + " - ID: " + id + ", Player1: " + player1 +
                         ", Player2: " + player2 + ", Score: " + score +
                         ", Break: " + highestBreak + ", Date: " + localDate);
 
                 matches.add(new MatchData(id, player1, player2, score, highestBreak, localDate));
-                rowCount++; // Increment AFTER processing each row
+                rowCount++;
             }
 
             System.out.println("DEBUG: Total rows retrieved: " + rowCount);
