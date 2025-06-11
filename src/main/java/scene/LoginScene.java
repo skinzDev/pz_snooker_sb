@@ -46,8 +46,17 @@ public class LoginScene {
         registerLink.setTextFill(Color.WHITE);
         registerLink.setOnAction(e -> stage.setScene(new RegisterScene(stage).getScene()));
 
-        layout.getChildren().addAll(title, username, password, loginBtn, registerLink);
+        Label tocLbl = new Label("Read Terms & Conditions");
+        tocLbl.setFont(Font.font("Arial", 12));
+        tocLbl.setStyle("-fx-text-fill: white;");
+        tocLbl.setOnMouseClicked(e -> {
+            new TermsAndConditionsApplication().launch();
+        });
+
+        layout.getChildren().addAll(title, username, password, loginBtn, registerLink, tocLbl);
         this.scene = new Scene(layout, 800, 600);
+
+
     }
 
     public Scene getScene() {

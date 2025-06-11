@@ -17,8 +17,8 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Scena koja prikazuje tok Snooker partije.
- * Sadrži GUI komponente za interakciju i prikaz stanja igre.
+ * Scene that displays the course of a Snooker match.
+ * Contains GUI components for interaction and displaying the game state.
  */
 public class GameScene {
     private final Scene scene;
@@ -41,7 +41,7 @@ public class GameScene {
         root.setStyle("-fx-background-color: #016300; -fx-border-color: #3B2A1A; -fx-border-width: 20;");
         root.setPadding(new Insets(20));
 
-        // Info sekcija na vrhu
+        // Info section at the top
         breakLabel.setFont(Font.font("Arial", 16));
         breakLabel.setTextFill(Color.AQUA);
         VBox infoBox = new VBox(10, scoreLabel, playerTurnLabel, infoLabel, breakLabel);
@@ -54,11 +54,11 @@ public class GameScene {
         infoLabel.setTextFill(Color.YELLOW);
         root.setTop(infoBox);
 
-        // Dugmad za kugle u centru
+        // Ball buttons in the center
         GridPane buttonsPane = createBallsGrid(stage);
         root.setCenter(buttonsPane);
 
-        // Kontrolna dugmad na dnu
+        // Control buttons at the bottom
         Button endTurnBtn = new Button("Završi potez / Promašaj");
         endTurnBtn.setOnAction(e -> {
             snooker.promasaj();
@@ -95,7 +95,7 @@ public class GameScene {
                 ballButtons.put(value, b);
                 buttonsPane.add(b, i, 0);
             } catch (Exception ex) {
-                System.err.println("Greška: Slika nije pronađena - " + imagePaths[i]);
+                System.err.println("Error: Image not found - " + imagePaths[i]);
                 Button b = new Button(String.valueOf(value)); // Fallback
                 b.setPrefSize(80, 80);
                 b.setOnAction(e -> handleBallClick(value, stage));
@@ -110,21 +110,27 @@ public class GameScene {
         snooker.klikNaBoju(value);
         updateDisplay();
         if (snooker.isGameOver()) {
-            showWinner(stage);
+            showWinnerAndSave(stage);
         }
     }
 
-    private void showWinner(Stage stage) {
+    private void showWinnerAndSave(Stage stage) {
+        // Step 1: Save match result and get the new match_id
+        int matchId = DatabaseManager.INSTANCE.saveMatchResult(player1Name, player2Name, snooker.getPoeni1(), snooker.getPoeni2());
 
-        System.out.println("showWinner called"); // Debug line
-
-        boolean saved = DatabaseManager.INSTANCE.saveMatchResult(player1Name, player2Name, snooker.getPoeni1(), snooker.getPoeni2(), snooker.getHighestBreakInMatch());
-
-        System.out.println("Match result: " + saved);
-        if (!saved) {
-            new Alert(Alert.AlertType.ERROR, "Greška pri konekciji sa bazom. Rezultat nije sačuvan.").showAndWait();
+        if (matchId == -1) {
+            new Alert(Alert.AlertType.ERROR, "Error connecting to the database. The result was not saved.").showAndWait();
+        } else {
+            // Step 2: If there was a break, save it to the new breaks table
+            int highestBreak = snooker.getHighestBreakInMatch();
+            if (highestBreak > 0) {
+                int playerNum = snooker.getPlayerWithHighestBreak();
+                String breakPlayerName = (playerNum == 1) ? player1Name : player2Name;
+                DatabaseManager.INSTANCE.saveHighestBreak(matchId, breakPlayerName, highestBreak);
+            }
         }
 
+        // Step 3: Announce the winner
         String winner;
         if (snooker.getPoeni1() > snooker.getPoeni2()) winner = player1Name;
         else if (snooker.getPoeni2() > snooker.getPoeni1()) winner = player2Name;
@@ -137,6 +143,7 @@ public class GameScene {
                 snooker.getPoeni1(), snooker.getPoeni2(), snooker.getHighestBreakInMatch()));
         alert.showAndWait();
 
+        // Step 4: Go to the match history scene
         stage.setScene(new MatchHistoryScene(stage).getScene());
     }
 
