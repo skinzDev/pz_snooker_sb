@@ -14,13 +14,11 @@ public class DatabaseManager {
     public static final DatabaseManager INSTANCE = new DatabaseManager();
     private static final String DATABASE_URL = "jdbc:mysql://localhost:3306/snooker_db?createDatabaseIfNotExist=true";
     private static final String USER = "root";
-    private static final String PASSWORD = ""; // <-- UNESITE VAŠU MySQL LOZINKU OVDE
-
+    private static final String PASSWORD = "";
     private Connection conn;
 
     private DatabaseManager() {
-        // Poveži se jednom pri inicijalizaciji instance
-        connect();
+        // Prazan konstruktor
     }
 
     /**
@@ -33,6 +31,8 @@ public class DatabaseManager {
             }
         } catch (SQLException e) {
             System.err.println("Greška prilikom konekcije na bazu: " + e.getMessage());
+            // Postavljamo conn na null da bi ostatak aplikacije znao da je neuspešno
+            conn = null;
         }
     }
 
@@ -50,31 +50,127 @@ public class DatabaseManager {
     }
 
     /**
-     * Inicijalizuje tabele 'users' i 'matches' ako ne postoje.
-     * Dodaje kolonu 'highest_break' u tabelu 'matches'.
+     * Inicijalizuje bazu, kreira tabele i automatski dodaje kolone koje nedostaju.
+     * Ova metoda je sada ključna za rešavanje problema.
      */
     public void initialize() {
-        connect(); // Osiguraj da postoji konekcija
-        String createUserTable = "CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL);";
-        String createMatchTable = "CREATE TABLE IF NOT EXISTS matches (id INT AUTO_INCREMENT PRIMARY KEY, player1_name VARCHAR(255) NOT NULL, player2_name VARCHAR(255) NOT NULL, score VARCHAR(50), highest_break INT DEFAULT 0, match_date DATE NOT NULL);";
+        connect();
+        if (conn == null) {
+            throw new RuntimeException("Fatalna greška: Nije moguće uspostaviti konekciju sa bazom podataka.");
+        }
 
         try (Statement stmt = conn.createStatement()) {
+            // 1. Kreiraj tabele ako ne postoje
+            String createUserTable = "CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL);";
             stmt.execute(createUserTable);
+
+            String createMatchTable = "CREATE TABLE IF NOT EXISTS matches (id INT AUTO_INCREMENT PRIMARY KEY, player1_name VARCHAR(255) NOT NULL, player2_name VARCHAR(255) NOT NULL, score VARCHAR(50), match_date DATE);";
             stmt.execute(createMatchTable);
+
+            // 2. Proveri i dodaj kolonu 'highest_break' ako ne postoji (KLJUČNA ISPRAVKA)
+            try {
+                // Pokušaj da dodaš kolonu. Ako već postoji, baciće SQLException.
+                stmt.executeUpdate("ALTER TABLE matches ADD COLUMN highest_break INT DEFAULT 0");
+                System.out.println("INFO: Kolona 'highest_break' je uspešno dodata u tabelu 'matches'.");
+            } catch (SQLException e) {
+                // Greška "Duplicate column name" je očekivana ako kolona već postoji i nju ignorišemo.
+                if (!e.getMessage().contains("Duplicate column name")) {
+                    // Ako je greška nešto drugo, onda je problem.
+                    throw e;
+                }
+            }
+
+            // 3. Proveri i osiguraj da 'match_date' nije NULL za buduće unose
+            try {
+                stmt.executeUpdate("ALTER TABLE matches MODIFY COLUMN match_date DATE NOT NULL");
+            } catch (SQLException e) {
+                // Ako ne uspe, verovatno postoje redovi sa NULL datumom. To je ok za stare podatke.
+                System.err.println("Upozorenje: Nije bilo moguće postaviti 'match_date' na NOT NULL. Moguće da postoje stari mečevi bez datuma.");
+            }
+
         } catch (SQLException e) {
-            System.err.println("Greška prilikom inicijalizacije tabela: " + e.getMessage());
+            // Ako bilo šta od ovoga pukne, aplikacija ne može da radi.
+            throw new RuntimeException("Fatalna greška: Inicijalizacija tabela nije uspela. Greška: " + e.getMessage(), e);
         }
     }
 
-    /**
-     * Registruje novog korisnika.
-     * @param username Korisničko ime
-     * @param password Lozinka
-     * @return true ako je uspeh, false inače
-     */
-    public boolean registerUser(String username, String password) {
-        String sql = "INSERT INTO users(username, password) VALUES(?,?)";
+    public boolean saveMatchResult(String player1, String player2, int score1, int score2, int highestBreak) {
         connect();
+        if (conn == null) {
+            System.err.println("Database connection is null when saving match result");
+            return false;
+        }
+
+        String sql = "INSERT INTO matches(player1_name, player2_name, score, highest_break, match_date) VALUES(?,?,?,?,?)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, player1);
+            pstmt.setString(2, player2);
+            pstmt.setString(3, score1 + " : " + score2);
+            pstmt.setInt(4, highestBreak);
+            pstmt.setDate(5, Date.valueOf(LocalDate.now()));
+
+            int rowsAffected = pstmt.executeUpdate();
+            System.out.println("Rows inserted: " + rowsAffected); // Debug line
+            return rowsAffected > 0;
+        } catch (SQLException e) {
+            System.err.println("Greška prilikom čuvanja rezultata meča: " + e.getMessage());
+            e.printStackTrace(); // Add stack trace for more details
+            return false;
+        }
+    }
+
+    public List<MatchData> getAllMatches() {
+        connect();
+        List<MatchData> matches = new ArrayList<>();
+
+        if (conn == null) {
+            System.err.println("DEBUG: Connection is null in getAllMatches()");
+            return matches;
+        }
+
+        System.out.println("DEBUG: Connection established, executing query...");
+
+        String sql = "SELECT id, player1_name, player2_name, score, highest_break, match_date FROM matches ORDER BY match_date DESC, id DESC";
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+
+            System.out.println("DEBUG: Query executed successfully");
+
+            int rowCount = 0; // Initialize once outside the loop
+            while (rs.next()) {
+                // Debug each field
+                int id = rs.getInt("id");
+                String player1 = rs.getString("player1_name");
+                String player2 = rs.getString("player2_name");
+                String score = rs.getString("score");
+                int highestBreak = rs.getInt("highest_break");
+                Date sqlDate = rs.getDate("match_date");
+                LocalDate localDate = (sqlDate != null) ? sqlDate.toLocalDate() : null;
+
+                System.out.println("DEBUG: Row " + (rowCount + 1) + " - ID: " + id + ", Player1: " + player1 +
+                        ", Player2: " + player2 + ", Score: " + score +
+                        ", Break: " + highestBreak + ", Date: " + localDate);
+
+                matches.add(new MatchData(id, player1, player2, score, highestBreak, localDate));
+                rowCount++; // Increment AFTER processing each row
+            }
+
+            System.out.println("DEBUG: Total rows retrieved: " + rowCount);
+            System.out.println("DEBUG: List size: " + matches.size());
+
+        } catch (SQLException e) {
+            System.err.println("DEBUG: SQL Exception in getAllMatches: " + e.getMessage());
+            e.printStackTrace();
+        }
+
+        return matches;
+    }
+
+    // Ostale metode ostaju iste kao u prethodnom odgovoru...
+    public boolean registerUser(String username, String password) {
+        connect();
+        if (conn == null) return false;
+        String sql = "INSERT INTO users(username, password) VALUES(?,?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username);
             pstmt.setString(2, password);
@@ -86,15 +182,10 @@ public class DatabaseManager {
         }
     }
 
-    /**
-     * Proverava validnost korisničkih podataka.
-     * @param username Korisničko ime
-     * @param password Lozinka
-     * @return true ako je validan, false inače
-     */
     public boolean validateUser(String username, String password) {
-        String sql = "SELECT password FROM users WHERE username = ?";
         connect();
+        if (conn == null) return false;
+        String sql = "SELECT password FROM users WHERE username = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username);
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -108,62 +199,10 @@ public class DatabaseManager {
         return false;
     }
 
-    /**
-     * Čuva rezultat meča, uključujući i najveći brejk.
-     * @param player1 Ime igrača 1
-     * @param player2 Ime igrača 2
-     * @param score1 Poeni igrača 1
-     * @param score2 Poeni igrača 2
-     * @param highestBreak Najveći brejk u meču
-     */
-    public void saveMatchResult(String player1, String player2, int score1, int score2, int highestBreak) {
-        String sql = "INSERT INTO matches(player1_name, player2_name, score, highest_break, match_date) VALUES(?,?,?,?,?)";
-        connect();
-        try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, player1);
-            pstmt.setString(2, player2);
-            pstmt.setString(3, score1 + " : " + score2);
-            pstmt.setInt(4, highestBreak);
-            pstmt.setDate(5, Date.valueOf(LocalDate.now()));
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            System.err.println("Greška prilikom čuvanja rezultata meča: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Dohvata sve sačuvane mečeve iz baze.
-     * @return Lista MatchData objekata
-     */
-    public List<MatchData> getAllMatches() {
-        List<MatchData> matches = new ArrayList<>();
-        String sql = "SELECT id, player1_name, player2_name, score, highest_break, match_date FROM matches ORDER BY match_date DESC, id DESC";
-        connect();
-        try (Statement stmt = conn.createStatement();
-             ResultSet rs = stmt.executeQuery(sql)) {
-            while (rs.next()) {
-                matches.add(new MatchData(
-                        rs.getInt("id"),
-                        rs.getString("player1_name"),
-                        rs.getString("player2_name"),
-                        rs.getString("score"),
-                        rs.getInt("highest_break"),
-                        rs.getDate("match_date").toLocalDate()
-                ));
-            }
-        } catch (SQLException e) {
-            System.err.println("Greška prilikom dohvatanja istorije mečeva: " + e.getMessage());
-        }
-        return matches;
-    }
-
-    /**
-     * Briše meč iz baze na osnovu ID-a.
-     * @param matchId ID meča za brisanje
-     */
     public void deleteMatch(int matchId) {
-        String sql = "DELETE FROM matches WHERE id = ?";
         connect();
+        if (conn == null) return;
+        String sql = "DELETE FROM matches WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, matchId);
             pstmt.executeUpdate();

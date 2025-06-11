@@ -115,7 +115,15 @@ public class GameScene {
     }
 
     private void showWinner(Stage stage) {
-        DatabaseManager.INSTANCE.saveMatchResult(player1Name, player2Name, snooker.getPoeni1(), snooker.getPoeni2(), snooker.getHighestBreakInMatch());
+
+        System.out.println("showWinner called"); // Debug line
+
+        boolean saved = DatabaseManager.INSTANCE.saveMatchResult(player1Name, player2Name, snooker.getPoeni1(), snooker.getPoeni2(), snooker.getHighestBreakInMatch());
+
+        System.out.println("Match result: " + saved);
+        if (!saved) {
+            new Alert(Alert.AlertType.ERROR, "Greška pri konekciji sa bazom. Rezultat nije sačuvan.").showAndWait();
+        }
 
         String winner;
         if (snooker.getPoeni1() > snooker.getPoeni2()) winner = player1Name;

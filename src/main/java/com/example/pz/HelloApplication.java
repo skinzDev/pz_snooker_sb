@@ -17,7 +17,7 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) {
         try {
-            // Inicijalizuj bazu podataka samo jednom pri pokretanju
+            // Inicijalizuj i popravi bazu podataka pri pokretanju
             DatabaseManager.INSTANCE.initialize();
 
             // Podesi i prikaži početnu scenu za prijavu
@@ -37,7 +37,8 @@ public class HelloApplication extends Application {
             System.err.println("Fatalna greška prilikom pokretanja aplikacije: " + e.getMessage());
             e.printStackTrace();
             showErrorAlert("Greška pri pokretanju",
-                    "Aplikacija se ne može pokrenuti. Proverite da li je MySQL server pokrenut i da li su podaci za konekciju ispravni.");
+                    "Aplikacija se ne može pokrenuti. Problem je sa bazom podataka.\n\nDetalji greške: " + e.getMessage());
+            Platform.exit();
         }
     }
 
