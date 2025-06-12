@@ -8,10 +8,6 @@ import javafx.scene.control.Alert;
 import javafx.stage.Stage;
 import scene.LoginScene;
 
-/**
- * Glavna klasa koja pokreće Snooker Score Tracker JavaFX aplikaciju.
- * Odgovorna je za inicijalizaciju baze podataka i postavljanje početne scene.
- */
 public class HelloApplication extends Application {
 
     @Override
@@ -42,11 +38,7 @@ public class HelloApplication extends Application {
         }
     }
 
-    /**
-     * Prikazuje prozor sa porukom o grešci.
-     * @param title Naslov prozora
-     * @param message Poruka greške
-     */
+
     private void showErrorAlert(String title, String message) {
         Alert alert = new Alert(Alert.AlertType.ERROR);
         alert.setTitle(title);
@@ -55,10 +47,7 @@ public class HelloApplication extends Application {
         alert.showAndWait();
     }
 
-    /**
-     * Glavna metoda (entry point) aplikacije.
-     * @param args Argumenti komandne linije (ne koriste se)
-     */
+
     public static void main(String[] args) {
         launch(args);
     }

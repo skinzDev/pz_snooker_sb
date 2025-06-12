@@ -1,6 +1,8 @@
 package database;
 
 import data.MatchData;
+import data.PasswordEncrypt;
+
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -196,10 +198,11 @@ public class DatabaseManager {
     public boolean registerUser(String username, String password) {
         connect();
         if (conn == null) return false;
+        String encryptedPassword = PasswordEncrypt.hashPassword(password);
         String sql = "INSERT INTO users(username, password) VALUES(?,?)";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setString(1, username);
-            pstmt.setString(2, password);
+            pstmt.setString(2, encryptedPassword);
             pstmt.executeUpdate();
             return true;
         } catch (SQLException e) {
@@ -236,12 +239,14 @@ public class DatabaseManager {
         Integer userId = getUserIdByName(username);
         if(userId == null) return false;
 
+
+
         String sql = "SELECT password FROM users WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, userId);
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
-                    if (rs.getString("password").equals(password)) {
+                    if (PasswordEncrypt.checkPassword(password, rs.getString("password"))) {
                         setCurrentUserId(userId); // Store user ID on successful login
                         return true;
                     }

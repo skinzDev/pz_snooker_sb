@@ -4,6 +4,7 @@ module com.example.pz {
     requires java.sql;
     requires mysql.connector.j;
     requires org.jsoup;
+    requires jbcrypt;
 
 
     opens com.example.pz to javafx.fxml;
