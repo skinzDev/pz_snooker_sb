@@ -19,9 +19,15 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Scene for displaying the history of played matches in a table.
- * Allows viewing and deleting previous results.
- * This version uses type-safe lambda expressions for cell value factories.
+ * Match History Scene
+ * <p>
+ * This class displays the history of played snooker matches in a TableView.
+ * It allows users to view past results, refresh the data, and delete match records.
+ * Data loading is performed asynchronously to keep the UI responsive.
+ * </p>
+ *
+ * @author Andrija Milovanovic
+ * @version 1.0
  */
 public class MatchHistoryScene {
 
@@ -29,6 +35,11 @@ public class MatchHistoryScene {
     private final TableView<MatchData> table = new TableView<>();
     private final Stage stage;
 
+    /**
+     * Constructs the match history scene.
+     *
+     * @param stage The primary stage of the application.
+     */
     public MatchHistoryScene(Stage stage) {
         this.stage = stage;
         VBox layout = new VBox(20);
@@ -59,8 +70,12 @@ public class MatchHistoryScene {
         this.scene = new Scene(layout, 800, 600);
     }
 
+    /**
+     * Configures the TableView columns and cell factories.
+     * This includes setting up data bindings for match properties and
+     * a custom cell for the delete button.
+     */
     private void setupTable() {
-        // Use type-safe lambda expressions instead of PropertyValueFactory
         TableColumn<MatchData, String> player1 = new TableColumn<>("Igrač 1");
         player1.setCellValueFactory(cellData -> new javafx.beans.property.SimpleStringProperty(cellData.getValue().getPlayer1()));
         player1.setPrefWidth(150);
@@ -106,6 +121,11 @@ public class MatchHistoryScene {
         table.setPlaceholder(new Label("Nema podataka o mečevima"));
     }
 
+    /**
+     * Asynchronously loads match data from the database into the table.
+     * This is done on a background thread to keep the UI responsive.
+     * Updates the table on the JavaFX Application Thread upon success or shows an error.
+     */
     private void loadData() {
         Task<List<MatchData>> loadTask = new Task<>() {
             @Override
@@ -118,8 +138,6 @@ public class MatchHistoryScene {
                 Platform.runLater(() -> table.setItems(FXCollections.observableArrayList(getValue())));
             }
 
-
-
             @Override
             protected void failed() {
                 Platform.runLater(() -> new Alert(Alert.AlertType.ERROR, "Greška pri učitavanju podataka iz baze.").show());
@@ -129,6 +147,11 @@ public class MatchHistoryScene {
         new Thread(loadTask).start();
     }
 
+    /**
+     * Returns the scene for the match history screen.
+     *
+     * @return The constructed match history scene.
+     */
     public Scene getScene() {
         return scene;
     }

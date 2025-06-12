@@ -9,35 +9,48 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Singleton class for managing connection and operations with the MySQL database.
- * Encapsulates all SQL queries and connection details.
- * This updated version includes tables for bug reports and player breaks.
+ * Manages all database interactions for the Snooker application using the Singleton pattern.
+ * This class handles the database connection, table initialization, and all CRUD
+ * (Create, Read, Update, Delete) operations for users, matches, breaks, and reports.
+ *
+ * @author Andrija Milovanovic
+ * @version 1.0
  */
 public class DatabaseManager {
+    /** The single instance of the DatabaseManager. */
     public static final DatabaseManager INSTANCE = new DatabaseManager();
+
     private static final String DATABASE_URL = "jdbc:mysql://localhost:3306/snooker_db?createDatabaseIfNotExist=true";
     private static final String USER = "root";
     private static final String PASSWORD = "";
     private Connection conn;
 
-    // To store the currently logged-in user's ID
     private int currentUserId = -1;
 
-    private DatabaseManager() {
-        // Private constructor for singleton
-    }
+    /**
+     * Private constructor to enforce the singleton pattern.
+     */
+    private DatabaseManager() {}
 
+    /**
+     * Sets the ID of the currently logged-in user.
+     * @param userId The user's ID from the database.
+     */
     public void setCurrentUserId(int userId) {
         this.currentUserId = userId;
     }
 
+    /**
+     * Gets the ID of the currently logged-in user.
+     * @return The current user's ID, or -1 if no user is logged in.
+     */
     public int getCurrentUserId() {
         return this.currentUserId;
     }
 
-
     /**
-     * Establishes a connection to the database. If a connection already exists, it does nothing.
+     * Establishes a connection to the MySQL database.
+     * If a connection is already open, this method does nothing.
      */
     public final void connect() {
         try {
@@ -51,7 +64,7 @@ public class DatabaseManager {
     }
 
     /**
-     * Disconnects from the database.
+     * Closes the active database connection.
      */
     public void disconnect() {
         try {
@@ -64,8 +77,11 @@ public class DatabaseManager {
     }
 
     /**
-     * Initializes the database, creates tables if they don't exist.
-     * New tables for reports and breaks are added.
+     * Initializes the database schema. It creates the necessary tables (users,
+     * matches, breaks, reports) if they do not already exist.
+     *
+     * @throws RuntimeException if the database connection cannot be established or
+     * if table creation fails.
      */
     public void initialize() {
         connect();
@@ -74,19 +90,15 @@ public class DatabaseManager {
         }
 
         try (Statement stmt = conn.createStatement()) {
-            // User table
             String createUserTable = "CREATE TABLE IF NOT EXISTS users (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(255) NOT NULL UNIQUE, password VARCHAR(255) NOT NULL);";
             stmt.execute(createUserTable);
 
-            // Matches table (without highest_break column)
             String createMatchTable = "CREATE TABLE IF NOT EXISTS matches (id INT AUTO_INCREMENT PRIMARY KEY, player1_name VARCHAR(255) NOT NULL, player2_name VARCHAR(255) NOT NULL, score VARCHAR(50), match_date DATE NOT NULL);";
             stmt.execute(createMatchTable);
 
-            // NEW: Breaks table
             String createBreaksTable = "CREATE TABLE IF NOT EXISTS breaks (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, player_name VARCHAR(255), break_score INT NOT NULL, match_id INT, FOREIGN KEY (match_id) REFERENCES matches(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL);";
             stmt.execute(createBreaksTable);
 
-            // NEW: Reports table
             String createReportsTable = "CREATE TABLE IF NOT EXISTS reports (id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, report_message TEXT NOT NULL, report_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE);";
             stmt.execute(createReportsTable);
 
@@ -96,8 +108,13 @@ public class DatabaseManager {
     }
 
     /**
-     * Saves the result of a match and returns the ID of the new match record.
-     * @return The ID of the inserted match, or -1 on failure.
+     * Saves the result of a completed match to the database.
+     *
+     * @param player1 The name of the first player.
+     * @param player2 The name of the second player.
+     * @param score1 The final score of the first player.
+     * @param score2 The final score of the second player.
+     * @return The auto-generated ID of the new match record, or -1 on failure.
      */
     public int saveMatchResult(String player1, String player2, int score1, int score2) {
         connect();
@@ -114,25 +131,28 @@ public class DatabaseManager {
             if (rowsAffected > 0) {
                 try (ResultSet generatedKeys = pstmt.getGeneratedKeys()) {
                     if (generatedKeys.next()) {
-                        return generatedKeys.getInt(1); // Return the generated match ID
+                        return generatedKeys.getInt(1);
                     }
                 }
             }
         } catch (SQLException e) {
             System.err.println("Error saving match result: " + e.getMessage());
-            e.printStackTrace();
         }
         return -1;
     }
 
     /**
-     * Saves the highest break of a match, linking it to the player and match.
+     * Saves the highest break of a match, linking it to the player and the specific match.
+     *
+     * @param matchId The ID of the match where the break was made.
+     * @param playerName The name of the player who made the break.
+     * @param breakScore The score of the highest break.
+     * @return {@code true} if the break was saved successfully, {@code false} otherwise.
      */
     public boolean saveHighestBreak(int matchId, String playerName, int breakScore) {
         connect();
         if (conn == null) return false;
 
-        // Find user_id if player_name corresponds to a user
         Integer userId = getUserIdByName(playerName);
 
         String sql = "INSERT INTO breaks(user_id, player_name, break_score, match_id) VALUES(?,?,?,?)";
@@ -148,13 +168,16 @@ public class DatabaseManager {
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("Error saving highest break: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
 
     /**
-     * Saves a bug report from a user.
+     * Saves a bug report submitted by a logged-in user.
+     *
+     * @param userId The ID of the user submitting the report.
+     * @param message The content of the bug report.
+     * @return {@code true} if the report was saved successfully, {@code false} otherwise.
      */
     public boolean saveReport(int userId, String message) {
         connect();
@@ -166,12 +189,15 @@ public class DatabaseManager {
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             System.err.println("Error saving report: " + e.getMessage());
-            e.printStackTrace();
             return false;
         }
     }
 
-
+    /**
+     * Retrieves a list of all matches from the database, ordered by date.
+     *
+     * @return A list of {@link MatchData} objects representing all matches.
+     */
     public List<MatchData> getAllMatches() {
         connect();
         List<MatchData> matches = new ArrayList<>();
@@ -190,11 +216,17 @@ public class DatabaseManager {
             }
         } catch (SQLException e) {
             System.err.println("Error getting all matches: " + e.getMessage());
-            e.printStackTrace();
         }
         return matches;
     }
 
+    /**
+     * Registers a new user in the database with a hashed password.
+     *
+     * @param username The desired username.
+     * @param password The plain-text password.
+     * @return {@code true} if registration is successful, {@code false} otherwise.
+     */
     public boolean registerUser(String username, String password) {
         connect();
         if (conn == null) return false;
@@ -212,8 +244,10 @@ public class DatabaseManager {
     }
 
     /**
-     * Gets user ID by username.
-     * @return User ID or null if not found.
+     * Retrieves a user's ID based on their username.
+     *
+     * @param username The username to search for.
+     * @return The user's ID as an {@link Integer}, or {@code null} if not found.
      */
     public Integer getUserIdByName(String username) {
         connect();
@@ -232,14 +266,19 @@ public class DatabaseManager {
         return null;
     }
 
-
+    /**
+     * Validates a user's credentials against the database.
+     * If validation is successful, the user's ID is stored for the session.
+     *
+     * @param username The username to validate.
+     * @param password The plain-text password to check.
+     * @return {@code true} if the credentials are correct, {@code false} otherwise.
+     */
     public boolean validateUser(String username, String password) {
         connect();
         if (conn == null) return false;
         Integer userId = getUserIdByName(username);
         if(userId == null) return false;
-
-
 
         String sql = "SELECT password FROM users WHERE id = ?";
         try (PreparedStatement pstmt = conn.prepareStatement(sql)) {
@@ -247,7 +286,7 @@ public class DatabaseManager {
             try (ResultSet rs = pstmt.executeQuery()) {
                 if (rs.next()) {
                     if (PasswordEncrypt.checkPassword(password, rs.getString("password"))) {
-                        setCurrentUserId(userId); // Store user ID on successful login
+                        setCurrentUserId(userId);
                         return true;
                     }
                 }
@@ -258,6 +297,12 @@ public class DatabaseManager {
         return false;
     }
 
+    /**
+     * Deletes a match record from the database using its ID.
+     * This also cascades to delete related break records.
+     *
+     * @param matchId The ID of the match to delete.
+     */
     public void deleteMatch(int matchId) {
         connect();
         if (conn == null) return;

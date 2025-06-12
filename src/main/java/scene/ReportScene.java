@@ -11,13 +11,26 @@ import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
 /**
- * A scene for users to submit bug reports or feedback.
+ * Bug Report and Feedback Scene
+ * <p>
+ * This class provides a scene for users to submit bug reports or suggestions.
+ * The submitted message is associated with the logged-in user and saved to the database.
+ * It includes a text area for input and buttons for submission and navigation.
+ * </p>
+ *
+ * @author Andrija Milovanovic
+ * @version 1.0
  */
 public class ReportScene {
 
     private final Scene scene;
     private final Stage stage;
 
+    /**
+     * Constructs the report scene.
+     *
+     * @param stage The primary stage of the application.
+     */
     public ReportScene(Stage stage) {
         this.stage = stage;
 
@@ -49,6 +62,13 @@ public class ReportScene {
         this.scene = new Scene(layout, 800, 600);
     }
 
+    /**
+     * Handles the submission of the report. It validates the message,
+     * retrieves the current user's ID, saves the report to the database,
+     * and provides feedback to the user.
+     *
+     * @param message The report content from the text area.
+     */
     private void handleSubmit(String message) {
         if (message.isBlank()) {
             new Alert(Alert.AlertType.WARNING, "Poruka ne može biti prazna.").showAndWait();
@@ -72,6 +92,11 @@ public class ReportScene {
         }
     }
 
+    /**
+     * Returns the scene for the report submission screen.
+     *
+     * @return The constructed report scene.
+     */
     public Scene getScene() {
         return scene;
     }

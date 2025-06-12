@@ -8,10 +8,27 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
+/**
+ * Main Menu and Game Settings Scene
+ * <p>
+ * This class provides the main menu interface for the application.
+ * It allows users to configure match settings, such as player names and the number
+ * of red balls, and provides navigation to start a new game, view match history,
+ * or report a bug.
+ * </p>
+ *
+ * @author Andrija Milovanovic
+ * @version 1.0
+ */
 public class MenuScene {
     private final Scene scene;
     private int brojCrvenih = 15;
 
+    /**
+     * Constructs the main menu scene.
+     *
+     * @param stage The primary stage of the application.
+     */
     public MenuScene(Stage stage) {
         VBox layout = new VBox(20);
         layout.setAlignment(Pos.CENTER);
@@ -73,7 +90,6 @@ public class MenuScene {
         Button historyBtn = new Button("Istorija Mečeva");
         historyBtn.setOnAction(e -> stage.setScene(new MatchHistoryScene(stage).getScene()));
 
-        // NEW: Report Bug Button
         Button reportBtn = new Button("Prijavi Grešku");
         reportBtn.setOnAction(e -> stage.setScene(new ReportScene(stage).getScene()));
 
@@ -83,11 +99,15 @@ public class MenuScene {
         HBox bottomButtonBox = new HBox(20, reportBtn);
         bottomButtonBox.setAlignment(Pos.CENTER);
 
-
         layout.getChildren().addAll(title, playersGrid, kugliceLabel, radioButtonsBox, topButtonBox, bottomButtonBox);
         this.scene = new Scene(layout, 800, 600);
     }
 
+    /**
+     * Returns the scene for the menu screen.
+     *
+     * @return The constructed menu scene.
+     */
     public Scene getScene() {
         return scene;
     }

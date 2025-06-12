@@ -9,9 +9,25 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
+/**
+ * User Registration Scene
+ * <p>
+ * This class creates and manages the user registration screen. It provides fields
+ * for a new username, password, and password confirmation. It handles the logic for
+ * creating a new user account and provides navigation back to the login screen.
+ * </p>
+ *
+ * @author Andrija Milovanovic
+ * @version 1.0
+ */
 public class RegisterScene {
     private final Scene scene;
 
+    /**
+     * Constructs the registration scene.
+     *
+     * @param stage The primary stage of the application.
+     */
     public RegisterScene(Stage stage) {
         VBox layout = new VBox(15);
         layout.setAlignment(Pos.CENTER);
@@ -66,6 +82,11 @@ public class RegisterScene {
         this.scene = new Scene(layout, 800, 600);
     }
 
+    /**
+     * Returns the scene for the registration screen.
+     *
+     * @return The constructed registration scene.
+     */
     public Scene getScene() {
         return scene;
     }

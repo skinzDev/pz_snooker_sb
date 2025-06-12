@@ -10,9 +10,25 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 
+/**
+ * User Login Scene
+ * <p>
+ * This class creates and manages the user login screen. It provides UI components
+ * for username and password input, a login button for authentication, a hyperlink
+ * to the registration scene, and a label to open the Terms and Conditions.
+ * </p>
+ *
+ * @author Andrija Milovanovic
+ * @version 1.0
+ */
 public class LoginScene {
     private final Scene scene;
 
+    /**
+     * Constructs the login scene.
+     *
+     * @param stage The primary stage of the application.
+     */
     public LoginScene(Stage stage) {
         VBox layout = new VBox(15);
         layout.setAlignment(Pos.CENTER);
@@ -49,16 +65,17 @@ public class LoginScene {
         Label tocLbl = new Label("Read Terms & Conditions");
         tocLbl.setFont(Font.font("Arial", 12));
         tocLbl.setStyle("-fx-text-fill: white;");
-        tocLbl.setOnMouseClicked(e -> {
-            new TermsAndConditionsApplication().launch();
-        });
+        tocLbl.setOnMouseClicked(e -> new TermsAndConditionsApplication().launch());
 
         layout.getChildren().addAll(title, username, password, loginBtn, registerLink, tocLbl);
         this.scene = new Scene(layout, 800, 600);
-
-
     }
 
+    /**
+     * Returns the scene for the login screen.
+     *
+     * @return The constructed login scene.
+     */
     public Scene getScene() {
         return scene;
     }
